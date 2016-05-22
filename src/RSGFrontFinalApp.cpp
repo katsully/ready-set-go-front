@@ -59,10 +59,11 @@ class RGSFrontFinalApp : public ci::app::App
 public:
 	RGSFrontFinalApp();
 
+	void						setup() override;
 	void						draw() override;
 	void						update() override;
 	void						keyDown(KeyEvent event);
-	void mouseMove(MouseEvent event) override;
+	void						mouseMove(MouseEvent event) override;
 private:
 	Kinect2::BodyFrame			mBodyFrame;
 	ci::Channel8uRef			mChannelBodyIndex;
@@ -81,29 +82,14 @@ private:
 
 	ivec2 mCurrentMousePosition;
 
-	osc::SenderUdp mSender;
+	//osc::SenderUdp mSender;
 	osc::ReceiverUdp mReceiver;
 };
 
-RGSFrontFinalApp::RGSFrontFinalApp() : App(), mReceiver(9000), mSender(8000, destinationHost, 8000)
+//RGSFrontFinalApp::RGSFrontFinalApp() : App(), mReceiver(9000), mSender(8000, destinationHost, 8000)
+RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 {
-	mSender.bind();
-	mReceiver.bind();
-	mReceiver.listen();
-	mReceiver.setListener("/blobs",
-		[](const osc::Message &message) {
-		std::string s = "Float: " + std::to_string(message[0].flt());
-		cout << "Float: " << message[0].flt() << endl;
-		cout << "Recieved From: " << message.getSenderIpAddress() << endl;
-	});
-	mReceiver.setListener("/kinect/blobs",
-		[](const osc::Message &message) {
-		ci::app::console() << "HELLOOO" << endl;
-		std::string s = "ID: " + std::to_string(message[0].flt());
-		ci::app::console() << "ID: " << message[0].flt() << endl;
-		ci::app::console() << "x coord: " << message[1].flt() << endl;
-		ci::app::console() << "y coord: " << message[2].flt() << endl;
-	});
+	//mSender.bind();
 
 	mFrameRate = 0.0f;
 	mFullScreen = false;
@@ -141,14 +127,37 @@ RGSFrontFinalApp::RGSFrontFinalApp() : App(), mReceiver(9000), mSender(8000, des
 	bodyColors.push_back(Color(1, 1, 1));	// white
 }
 
+void RGSFrontFinalApp::setup()
+{
+	console() << "hits set up" << endl;
+	OutputDebugString(TEXT("output string works"));
+	//mSender.bind();
+	mReceiver.setListener("/mousemove/1",
+		[&](const osc::Message &msg) {
+		OutputDebugString(TEXT("mouse moveeee"));
+		cout << msg[0].character() << endl;
+	});
+	mReceiver.bind();
+	mReceiver.listen();
+	mReceiver.setListener("/kinect/blobs",
+		[](const osc::Message &msg) {
+		OutputDebugString(TEXT("HEREEEE"));
+		cout << "MADE IITTT" << endl;
+		cout << "ID: " << msg[0].int32() << endl;
+		cout << "x coord: " << msg[1].int32() << endl;
+		cout << "y coord: " << msg[2].int32() << endl;
+		cout << "Recieved From: " << msg.getSenderIpAddress() << endl;
+	});
+}
+
 void RGSFrontFinalApp::mouseMove(MouseEvent event)
 {
-	mCurrentMousePosition = event.getPos();
+	/*mCurrentMousePosition = event.getPos();
 	osc::Message msg("/bodies");
 	msg.append(mCurrentMousePosition.x);
 	msg.append(mCurrentMousePosition.y);
 
-	mSender.send(msg);
+	mSender.send(msg);*/
 }
 
 
@@ -280,7 +289,7 @@ void RGSFrontFinalApp::update()
 
 void RGSFrontFinalApp::keyDown(KeyEvent event) {
 	if ('a' == event.getChar()) {
-		console() << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
+		//console() << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
 	}
 }
 
