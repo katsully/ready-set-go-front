@@ -140,13 +140,13 @@ void RGSFrontFinalApp::setup()
 	mReceiver.bind();
 	mReceiver.listen();
 	mReceiver.setListener("/kinect/blobs",
-		[](const osc::Message &msg) {
+		[&](const osc::Message &msg) {
 		OutputDebugString(TEXT("HEREEEE"));
-		cout << "MADE IITTT" << endl;
-		cout << "ID: " << msg[0].int32() << endl;
-		cout << "x coord: " << msg[1].int32() << endl;
-		cout << "y coord: " << msg[2].int32() << endl;
-		cout << "Recieved From: " << msg.getSenderIpAddress() << endl;
+		console() << "MADE IITTT" << endl;
+		console() << "ID: " << msg[0].int32() << endl;
+		console() << "x coord: " << msg[1].int32() << endl;
+		console() << "y coord: " << msg[2].int32() << endl;
+		console() << "Recieved From: " << msg.getSenderIpAddress() << endl;
 	});
 }
 
