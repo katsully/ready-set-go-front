@@ -129,14 +129,7 @@ RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 
 void RGSFrontFinalApp::setup()
 {
-	console() << "hits set up" << endl;
-	OutputDebugString(TEXT("output string works"));
 	//mSender.bind();
-	mReceiver.setListener("/mousemove/1",
-		[&](const osc::Message &msg) {
-		OutputDebugString(TEXT("mouse moveeee"));
-		cout << msg[0].character() << endl;
-	});
 	mReceiver.bind();
 	mReceiver.listen();
 	mReceiver.setListener("/kinect/blobs",
@@ -144,8 +137,8 @@ void RGSFrontFinalApp::setup()
 		OutputDebugString(TEXT("HEREEEE"));
 		console() << "MADE IITTT" << endl;
 		console() << "ID: " << msg[0].int32() << endl;
-		console() << "x coord: " << msg[1].int32() << endl;
-		console() << "y coord: " << msg[2].int32() << endl;
+		console() << "x coord: " << msg[1].flt() << endl;
+		console() << "y coord: " << msg[2].flt() << endl;
 		console() << "Recieved From: " << msg.getSenderIpAddress() << endl;
 	});
 }
