@@ -46,6 +46,7 @@
 
 #include "Kinect2.h"
 #include "Osc.h"
+#include "Outfit.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -63,7 +64,6 @@ public:
 	void						draw() override;
 	void						update() override;
 	void						keyDown(KeyEvent event);
-	void						mouseMove(MouseEvent event) override;
 private:
 	Kinect2::BodyFrame			mBodyFrame;
 	ci::Channel8uRef			mChannelBodyIndex;
@@ -76,11 +76,9 @@ private:
 	ci::params::InterfaceGlRef	mParams;
 
 	// list of colors representing a person
-	vector<ColorA8u> shirtColors;
-	vector<ColorA8u> bodyColors;
-	vector < tuple<ColorA8u, ColorA8u> > outfits;
-
-	ivec2 mCurrentMousePosition;
+	//vector<ColorA8u> shirtColors;
+	vector < ColorA8u > bodyColors;
+	vector < Outfit > outfits;
 
 	//osc::SenderUdp mSender;
 	osc::ReceiverUdp mReceiver;
@@ -90,7 +88,7 @@ private:
 RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 {
 	//mSender.bind();
-
+	console() << "START~~~~~~~~~~~~~~~~~~~~~~~" << endl;
 	mFrameRate = 0.0f;
 	mFullScreen = false;
 
@@ -117,7 +115,6 @@ RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 	mParams->addParam("Frame rate", &mFrameRate, "", true);
 	mParams->addParam("Full screen", &mFullScreen).key("f");
 	mParams->addButton("Quit", [&]() { quit(); }, "key=q");
-	console() << "HERE" << endl;
 
 	bodyColors.push_back(Color(1, 0, 0));	// red
 	bodyColors.push_back(Color(1, 1, 0));	// yellow
@@ -125,6 +122,7 @@ RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 	bodyColors.push_back(Color(0, 0, 1));	// blue
 	bodyColors.push_back(Color(0, 0, 0));	// black
 	bodyColors.push_back(Color(1, 1, 1));	// white
+	bodyColors.push_back(Color(1, 0, 1));	// purple
 }
 
 void RGSFrontFinalApp::setup()
@@ -134,25 +132,12 @@ void RGSFrontFinalApp::setup()
 	mReceiver.listen();
 	mReceiver.setListener("/kinect/blobs",
 		[&](const osc::Message &msg) {
-		OutputDebugString(TEXT("HEREEEE"));
 		console() << "MADE IITTT" << endl;
 		console() << "ID: " << msg[0].int32() << endl;
 		console() << "x coord: " << msg[1].flt() << endl;
 		console() << "y coord: " << msg[2].flt() << endl;
-		console() << "Recieved From: " << msg.getSenderIpAddress() << endl;
 	});
 }
-
-void RGSFrontFinalApp::mouseMove(MouseEvent event)
-{
-	/*mCurrentMousePosition = event.getPos();
-	osc::Message msg("/bodies");
-	msg.append(mCurrentMousePosition.x);
-	msg.append(mCurrentMousePosition.y);
-
-	mSender.send(msg);*/
-}
-
 
 void RGSFrontFinalApp::draw()
 {
@@ -199,60 +184,81 @@ void RGSFrontFinalApp::draw()
 		gl::disable(GL_TEXTURE_2D);
 		for (const Kinect2::Body& body : mBodyFrame.getBodies()) {
 			if (body.isTracked()) {
-				// color for skeleton
-				gl::color(Color(1, 0, 1));
-				bool newPerson = true;
+				bool newPerson = true; // if shirts and pants match a tracked outfit
+				int idx = 0;	// this will correspond to the index of bodyColors
 				ColorA8u shirtColor;
 				ColorA8u pantColor;
 				for (const auto& joint : body.getJointMap()) {
 					if (joint.second.getTrackingState() == TrackingState::TrackingState_Tracked) {
 						// get the color from the performer's right shoulder
 						if (joint.first == JointType_ShoulderRight) {
-							const vec2 midSpinePos = mDevice->mapCameraToColor(joint.second.getPosition());
-							shirtColor = mSurfaceColor->getPixel(midSpinePos);
-							for (ColorA8u c : shirtColors) {
-								if (abs(shirtColor.r - c.r) < 45 && abs(shirtColor.g - c.g) < 45 && abs(shirtColor.b - c.b) < 45) {
-									newPerson = false;
-									break;
-								}
-							}
-							if (newPerson && shirtColors.size() < 6) {
-								shirtColors.push_back(shirtColor);
-							}
+							// get coordinate of shoulder from RGB camera
+							const vec2 rShoulderPos = mDevice->mapCameraToColor(joint.second.getPosition());
+							// get color of the shirt
+							shirtColor = mSurfaceColor->getPixel(rShoulderPos);
 						}
 						// second color tracker to look at pant color
 						else if (joint.first == JointType_KneeRight) {
-							const vec2 kneeRightPos = mDevice->mapCameraToColor(joint.second.getPosition());
-							ColorA8u pantColor = mSurfaceColor->getPixel(kneeRightPos);
-							int idx = 0;
-
-							// if this is possibly an existing person because the shirt matched
-							if (!newPerson) {
-								for (tuple<ColorA8u, ColorA8u> outfit : outfits) {
-									ColorA8u c = std::get<0>(outfit);
-									if (abs(shirtColor.r - c.r) < 45 && abs(shirtColor.g - c.g) < 45 && abs(shirtColor.b - c.b) < 45) {
-										ColorA8u p = std::get<1>(outfit);
-										if (abs(pantColor.r - c.r) < 45 && abs(pantColor.g - c.g) < 45 && abs(pantColor.b - c.b) < 45) {
-											newPerson = false;
-											break;
-										}
-										idx++;
+							// get coordinate of knee from RGB camera
+							const vec2 rKneePos = mDevice->mapCameraToColor(joint.second.getPosition());
+							// get color of the pants
+							pantColor = mSurfaceColor->getPixel(rKneePos);
+							// match body to previously tracked body
+							for (Outfit &outfit : outfits) {
+								ColorA8u c = outfit.shirtColor;
+								// match shirts
+								if (abs(shirtColor.r - c.r) < 40 && abs(shirtColor.g - c.g) < 40 && abs(shirtColor.b - c.b) < 40) {
+									ColorA8u p = outfit.pantColor;
+									// match pants
+									if (abs(pantColor.r - p.r) < 40 && abs(pantColor.g - p.g) < 40 && abs(pantColor.b - p.b) < 40) {
+										// definetly an exisiting identified body
+										newPerson = false;
+										outfit.reset();
+										break;
 									}
 								}
+								idx++;
 							}
-							if (newPerson && outfits.size() < 6) {
-								outfits.push_back(make_tuple(shirtColor, pantColor));
-								idx = outfits.size() - 1;
+							// add new person to list of identified bodies
+							if (newPerson) {
+								bool update = false;
+								int counter = 0;
+								for (Outfit &outfit: outfits) {
+									if (outfit.active = false) {
+										outfit.update(shirtColor, pantColor);
+										update = true;
+										idx = counter;
+										break;
+									}
+									counter++;
+								}
+								if (!update) {
+									outfits.push_back(Outfit(shirtColor, pantColor));
+									idx = outfits.size() - 1;
+								}
 							}
-							if (idx > 6) {
+							if (idx >= 7) {
 								idx = 0;
 							}
-							//console() << "OUTFITS SIZE: ";
-							//console() << outfits.size() << endl;
-							//console() << "INDEX COUNT: ";
-							//console() << idx << endl;
+							console() << "OUTFITS SIZE: ";
+							console() << outfits.size() << endl;
+							console() << "INDEX COUNT: ";
+							console() << idx << endl;
 							gl::color(bodyColors[idx]);
 						}
+						//const vec2 pos(mDevice->mapCameraToDepth(joint.second.getPosition()));
+						//gl::drawSolidCircle(pos, 5.0f, 32);
+						//const vec2 parent(mDevice->mapCameraToDepth(
+							//body.getJointMap().at(joint.second.getParentJoint()).getPosition()
+							//));
+						//gl::drawLine(pos, parent);
+					}
+				}
+				// draw joints
+				console() << "index before drawing " << idx << endl;
+				gl::color(bodyColors[idx]);
+				for (const auto& joint : body.getJointMap()) {
+					if (joint.second.getTrackingState() == TrackingState::TrackingState_Tracked) {
 						const vec2 pos(mDevice->mapCameraToDepth(joint.second.getPosition()));
 						gl::drawSolidCircle(pos, 5.0f, 32);
 						const vec2 parent(mDevice->mapCameraToDepth(
@@ -278,11 +284,18 @@ void RGSFrontFinalApp::update()
 		setFullScreen(mFullScreen);
 		mFullScreen = isFullScreen();
 	}
+
+	for (Outfit &outfit : outfits) {
+		outfit.activeCount--;
+		if (outfit.activeCount < 0) {
+			outfit.active = false;
+		}
+	}
 }
 
 void RGSFrontFinalApp::keyDown(KeyEvent event) {
 	if ('a' == event.getChar()) {
-		//console() << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
+		console() << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
 	}
 }
 

@@ -117,6 +117,7 @@
   <ItemGroup />
   <ItemGroup />
   <ItemGroup>
+    <ClCompile Include="..\src\Outfit.cpp" />
     <ClCompile Include="..\src\RSGFrontFinalApp.cpp" />
     <ClCompile Include="..\..\Cinder-KCB2\src\Kinect2.cpp" />
     <ClCompile Include="..\..\OSC\src\Osc.cpp" />
@@ -126,6 +127,7 @@
     <ClInclude Include="..\..\Cinder-KCB2\src\Kinect2.h" />
     <ClInclude Include="..\..\Cinder-OpenCV\include\CinderOpenCV.h" />
     <ClInclude Include="..\..\OSC\src\Osc.h" />
+    <ClInclude Include="..\src\Outfit.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
