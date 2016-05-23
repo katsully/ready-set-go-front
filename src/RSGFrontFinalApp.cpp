@@ -123,6 +123,7 @@ RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 	bodyColors.push_back(Color(0, 0, 0));	// black
 	bodyColors.push_back(Color(1, 1, 1));	// white
 	bodyColors.push_back(Color(1, 0, 1));	// purple
+	bodyColors.push_back(Color(1, 0.5, 0)); // orange
 }
 
 void RGSFrontFinalApp::setup()
