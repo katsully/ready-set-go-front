@@ -246,12 +246,6 @@ void RGSFrontFinalApp::draw()
 							console() << idx << endl;
 							gl::color(bodyColors[idx]);
 						}
-						//const vec2 pos(mDevice->mapCameraToDepth(joint.second.getPosition()));
-						//gl::drawSolidCircle(pos, 5.0f, 32);
-						//const vec2 parent(mDevice->mapCameraToDepth(
-							//body.getJointMap().at(joint.second.getParentJoint()).getPosition()
-							//));
-						//gl::drawLine(pos, parent);
 					}
 				}
 				// draw joints
