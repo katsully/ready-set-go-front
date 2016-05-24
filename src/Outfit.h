@@ -12,10 +12,8 @@ public:
 	Outfit(ColorA8u shirt, ColorA8u pants);
 	ColorA8u shirtColor;
 	ColorA8u pantColor;
-	bool active;
-	int activeCount;
+	int appearances;
 
-	void reset();
 	void update(ColorA8u shirt, ColorA8u pants);
 };
 

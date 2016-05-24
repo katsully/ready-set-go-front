@@ -55,15 +55,16 @@ using namespace std;
 const std::string destinationHost = "127.0.0.1";
 const uint16_t destinationPort = 8000;
 
-class RGSFrontFinalApp : public ci::app::App
+class RSGFrontFinalApp : public ci::app::App
 {
 public:
-	RGSFrontFinalApp();
+	RSGFrontFinalApp();
 
 	void						setup() override;
 	void						draw() override;
 	void						update() override;
 	void						keyDown(KeyEvent event);
+	vec3						makeBigger(vec3 hsvColor);
 private:
 	Kinect2::BodyFrame			mBodyFrame;
 	ci::Channel8uRef			mChannelBodyIndex;
@@ -75,6 +76,8 @@ private:
 	bool						mFullScreen;
 	ci::params::InterfaceGlRef	mParams;
 
+	int updateCounter;
+
 	// list of colors representing a person
 	//vector<ColorA8u> shirtColors;
 	vector < ColorA8u > bodyColors;
@@ -85,7 +88,7 @@ private:
 };
 
 //RGSFrontFinalApp::RGSFrontFinalApp() : App(), mReceiver(9000), mSender(8000, destinationHost, 8000)
-RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
+RSGFrontFinalApp::RSGFrontFinalApp() : mReceiver(8000)
 {
 	//mSender.bind();
 	console() << "START~~~~~~~~~~~~~~~~~~~~~~~" << endl;
@@ -126,8 +129,10 @@ RGSFrontFinalApp::RGSFrontFinalApp() : mReceiver(8000)
 	bodyColors.push_back(Color(1, 0.5, 0)); // orange
 }
 
-void RGSFrontFinalApp::setup()
+void RSGFrontFinalApp::setup()
 {
+	updateCounter = 0;
+
 	//mSender.bind();
 	mReceiver.bind();
 	mReceiver.listen();
@@ -140,7 +145,7 @@ void RGSFrontFinalApp::setup()
 	});
 }
 
-void RGSFrontFinalApp::draw()
+void RSGFrontFinalApp::draw()
 {
 	const gl::ScopedViewport scopedViewport(ivec2(0), getWindowSize());
 	const gl::ScopedMatrices scopedMatrices;
@@ -189,6 +194,8 @@ void RGSFrontFinalApp::draw()
 				int idx = 0;	// this will correspond to the index of bodyColors
 				ColorA8u shirtColor;
 				ColorA8u pantColor;
+				vec3 shirtHSV;
+				vec3 pantHSV;
 				for (const auto& joint : body.getJointMap()) {
 					if (joint.second.getTrackingState() == TrackingState::TrackingState_Tracked) {
 						// get the color from the performer's right shoulder
@@ -197,6 +204,14 @@ void RGSFrontFinalApp::draw()
 							const vec2 rShoulderPos = mDevice->mapCameraToColor(joint.second.getPosition());
 							// get color of the shirt
 							shirtColor = mSurfaceColor->getPixel(rShoulderPos);
+							gl::color(shirtColor);
+							gl::drawSolidCircle(vec2(30.0, 30.0), 30.0);
+							shirtHSV = shirtColor.get(CM_HSV);
+							shirtHSV = makeBigger(shirtHSV);
+							console() << "SHIRT" << endl;
+							console() << "hue " << shirtHSV.x << endl;
+							console() << "saturation " << shirtHSV.y << endl;
+							console() << "value " << shirtHSV.z << endl;
 						}
 						// second color tracker to look at pant color
 						else if (joint.first == JointType_KneeRight) {
@@ -204,53 +219,84 @@ void RGSFrontFinalApp::draw()
 							const vec2 rKneePos = mDevice->mapCameraToColor(joint.second.getPosition());
 							// get color of the pants
 							pantColor = mSurfaceColor->getPixel(rKneePos);
+							/*gl::color(pantColor);
+							gl::drawSolidCircle(vec2(10.0, 10.0), 20.0);*/
+							pantHSV = pantColor.get(CM_HSV);
+							pantHSV = makeBigger(pantHSV);
+							console() << "PANTS" << endl;
+							console() << "hue " << pantHSV.x << endl;
+							console() << "saturation " << pantHSV.y << endl;
+							console() << "value " << pantHSV.z << endl;
 							// match body to previously tracked body
+							float closestMatch = 10000.0f;
+							Outfit matchingOutfit;
+							int closestIdx;
+							float match;
+							bool matchBool;
 							for (Outfit &outfit : outfits) {
+								match = 100000.0f;
+								matchBool = false;
 								ColorA8u c = outfit.shirtColor;
+								vec3 cHSV = c.get(CM_HSV);
+								cHSV = makeBigger(cHSV);
 								// match shirts
-								if (abs(shirtColor.r - c.r) < 40 && abs(shirtColor.g - c.g) < 40 && abs(shirtColor.b - c.b) < 40) {
+								/*console() << "ABS shirts" << endl;
+								console() << abs(shirtHSV.x - cHSV.x) << endl;
+								console() << abs(shirtHSV.y - cHSV.y) << endl;
+								console() << abs(shirtHSV.z - cHSV.z) << endl;*/
+								if (abs(shirtHSV.x - cHSV.x) < 15 && abs(shirtHSV.y - cHSV.y) < 120 && abs(shirtHSV.z - cHSV.z) < 25) {
 									ColorA8u p = outfit.pantColor;
+									vec3 pHSV = p.get(CM_HSV);
+									pHSV = makeBigger(pHSV);
+									match = abs(shirtHSV.x - cHSV.x) + (abs(shirtHSV.y - cHSV.y)/10) + abs(shirtHSV.z - cHSV.z);
+									console() << "shirt matched" << endl;
+									/*console() << "ABS pants" << endl;
+									console() << abs(pantHSV.x - pHSV.x) << endl;
+									console() << abs(pantHSV.y - pHSV.y) << endl;
+									console() << abs(pantHSV.z - pHSV.z) << endl;*/
 									// match pants
-									if (abs(pantColor.r - p.r) < 40 && abs(pantColor.g - p.g) < 40 && abs(pantColor.b - p.b) < 40) {
+									if (abs(pantHSV.x - pHSV.x) < 25 && abs(pantHSV.y - pHSV.y) < 120 && abs(pantHSV.z - pHSV.z) < 120) {
 										// definetly an exisiting identified body
 										newPerson = false;
-										outfit.reset();
-										break;
+										matchBool = true;
+										//outfit.update(shirtColor, pantColor);
+										console() << "~~~~~~tracked person~~~~~~~" << endl;
+										//match += abs(pantHSV.x - pHSV.x) + abs(pantHSV.y - pHSV.y) + abs(pantHSV.z - pHSV.z);
+										console() << "match" << idx << ": " << match << endl;
+										//break;
 									}
+								}
+								if (matchBool && (closestMatch > match)) {
+									console() << "in the if statement" << endl;
+									closestMatch = match;
+									matchingOutfit = outfit;
+									closestIdx = idx;
 								}
 								idx++;
 							}
 							// add new person to list of identified bodies
 							if (newPerson) {
-								bool update = false;
-								int counter = 0;
-								for (Outfit &outfit: outfits) {
-									if (outfit.active = false) {
-										outfit.update(shirtColor, pantColor);
-										update = true;
-										idx = counter;
-										break;
-									}
-									counter++;
-								}
-								if (!update) {
-									outfits.push_back(Outfit(shirtColor, pantColor));
-									idx = outfits.size() - 1;
-								}
+								console() << "NEW PERSONNN!!!!!!!!" << endl;
+								outfits.push_back(Outfit(shirtColor, pantColor));
+								idx = outfits.size() - 1;
 							}
-							if (idx >= 7) {
-								idx = 0;
+							else {
+								//matchingOutfit.update(shirtColor, pantColor);
+								idx = closestIdx;
+							}
+							if (idx >= 8) {
+								idx = 5;
 							}
 							console() << "OUTFITS SIZE: ";
 							console() << outfits.size() << endl;
 							console() << "INDEX COUNT: ";
 							console() << idx << endl;
+							console() << "--------------------------" << endl;
 							gl::color(bodyColors[idx]);
 						}
 					}
 				}
 				// draw joints
-				console() << "index before drawing " << idx << endl;
 				gl::color(bodyColors[idx]);
 				for (const auto& joint : body.getJointMap()) {
 					if (joint.second.getTrackingState() == TrackingState::TrackingState_Tracked) {
@@ -271,7 +317,11 @@ void RGSFrontFinalApp::draw()
 	mParams->draw();
 }
 
-void RGSFrontFinalApp::update()
+static bool pred(Outfit &o) {
+	return o.appearances < 10;
+}
+
+void RSGFrontFinalApp::update()
 {
 	mFrameRate = getAverageFps();
 
@@ -280,21 +330,30 @@ void RGSFrontFinalApp::update()
 		mFullScreen = isFullScreen();
 	}
 
-	for (Outfit &outfit : outfits) {
-		outfit.activeCount--;
-		if (outfit.activeCount < 0) {
-			outfit.active = false;
-		}
-	}
+
+	//if (updateCounter % 150 == 0) {
+	//	// remove all outfit objects that have not been tracked more than 20 times frames
+	//	outfits.erase(std::remove_if(outfits.begin(), outfits.end(), pred), outfits.end());
+	//}
+	//updateCounter++;
 }
 
-void RGSFrontFinalApp::keyDown(KeyEvent event) {
+void RSGFrontFinalApp::keyDown(KeyEvent event) {
 	if ('a' == event.getChar()) {
 		console() << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
 	}
 }
 
-CINDER_APP(RGSFrontFinalApp, RendererGl, [](App::Settings* settings)
+vec3 RSGFrontFinalApp::makeBigger(vec3 hsvColor)
+{
+	vec3 newValues;
+	newValues.x = hsvColor.x * 179;
+	newValues.y = hsvColor.y * 255;
+	newValues.z = hsvColor.z;
+	return newValues;
+}
+
+CINDER_APP(RSGFrontFinalApp, RendererGl, [](App::Settings* settings)
 {
 	settings->prepareWindow(Window::Format().size(1024, 768).title("Body Tracking App"));
 	settings->disableFrameRate();
